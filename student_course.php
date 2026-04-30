@@ -148,7 +148,6 @@ $announcements = [];
 $assignments = [];
 $grades = [];
 
-if ($selectedCourseId !== '') {
 
 // Upload handling in "assignments" tab context
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_submit'])) {
@@ -474,83 +473,50 @@ if ($selectedCourseId !== '') {
     <?php endif; ?>
 </div>
 <script>
-    document.addEventListener(\'DOMContentLoaded\', function() {
-        const innerTabs = document.getElementById(\'inner-tabs\
-        const tabContentContainer = document.getElementById(\'tab-content-container\
+    document.addEventListener('DOMContentLoaded', function() {
+    const innerTabs = document.getElementById('inner-tabs');
+    const tabContentContainer = document.getElementById('tab-content-container');
 
-        if (!innerTabs || !tabContentContainer) return;
+    if (!innerTabs || !tabContentContainer) return;
 
-        innerTabs.addEventListener(\'click\', function(event) {
-            const target = event.target;
-            if (target.tagName === \'A\' && target.dataset.tab) {
-                event.preventDefault();
+    innerTabs.addEventListener('click', function(event) {
+        const target = event.target;
+        if (target.tagName === 'A' && target.dataset.tab) {
+            event.preventDefault();
 
-                const selectedTab = target.dataset.tab;
-                const selectedCourseId = \'<?php echo htmlspecialchars($selectedCourseId, ENT_QUOTES, \'UTF-8\'); ?>\';
+            const selectedTab = target.dataset.tab;
+            const selectedCourseId = '<?php echo $selectedCourseId; ?>';
 
-                // Update active tab styling
-                innerTabs.querySelectorAll(\".nav-link\").forEach(link => {
-                    link.classList.remove(\'active\');
-                });
-                target.classList.add(\'active\');
+            // 更新樣式
+            innerTabs.querySelectorAll(".nav-link").forEach(link => link.classList.remove('active'));
+            target.classList.add('active');
 
-                // Hide all tab panes
-                tabContentContainer.querySelectorAll(\".tab-pane\").forEach(pane => {
-                    pane.classList.remove(\'show\', \'active\');
-                });
+            // 切換 Pane
+            tabContentContainer.querySelectorAll(".tab-pane").forEach(pane => pane.classList.remove('show', 'active'));
+            const targetContent = document.getElementById(selectedTab + '-content');
 
-                const targetContentId = selectedTab + \'-content\';
-                const targetContent = document.getElementById(targetContentId);
+            if (targetContent) {
+                targetContent.classList.add('show', 'active');
+                targetContent.innerHTML = '<div class="text-center py-5">載入中...</div>';
 
-                if (targetContent) {
-                    targetContent.classList.add(\'show\', \'active\');
-                    targetContent.innerHTML = \'<div class="text-center py-5">載入中...</div>\
-
-                    fetch(\`student_course.php?course_id=${selectedCourseId}&tab=${selectedTab}&fetch_data=true\`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (selectedTab === \'announcements\') {
-                                targetContent.innerHTML = data.announcements_html;
-                            } else if (selectedTab === \'assignments\') {
-                                // For assignments, we need to consider the upload form as well
-                                targetContent.innerHTML = \`<div class="alert alert-info">上傳作業功能需重新載入頁面，請<a href="student_course.php?course_id=${selectedCourseId}&tab=assignments">點此重新載入</a>。</div><hr/>${data.assignments_html}\
-                            } else if (selectedTab === \'grades\') {
-                                targetContent.innerHTML = data.grades_html;
-                            }
-                        })
-                        .catch(error => {
-                            console.error(\'Error fetching tab content:\', error);
-                            targetContent.innerHTML = \'<div class="alert alert-danger">載入失敗，請稍後再試。</div>\
-                        });
-                }
+                fetch(`student_course.php?course_id=${selectedCourseId}&tab=${selectedTab}&fetch_data=true`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // 根據分頁填入 HTML
+                        if (selectedTab === 'announcements') targetContent.innerHTML = data.announcements_html;
+                        else if (selectedTab === 'assignments') {
+                            // 提示使用者上傳功能需重新整理，或在後端把 Form 也寫入 JSON
+                            targetContent.innerHTML = `<div class="alert alert-info">上傳作業後頁面將自動重整。</div>${data.assignments_html}`;
+                        }
+                        else if (selectedTab === 'grades') targetContent.innerHTML = data.grades_html;
+                    })
+                    .catch(error => {
+                        targetContent.innerHTML = '<div class="alert alert-danger">載入失敗。</div>';
+                    });
             }
-        });
-
-        // Initial load for the active tab content via AJAX (if not already rendered by PHP)
-        const initialActiveTab = \'<?php echo $activeInnerTab; ?>\';
-        const initialSelectedCourseId = \'<?php echo htmlspecialchars($selectedCourseId, ENT_QUOTES, \'UTF-8\'); ?>\';
-        const initialContentElement = document.getElementById(initialActiveTab + \'-content\
-
-        // Only fetch if content is not already present (i.e., not rendered by PHP initially)
-        if (initialContentElement && initialContentElement.innerHTML.trim() === \'\') {
-             initialContentElement.innerHTML = \'<div class="text-center py-5">載入中...</div>\
-             fetch(\`student_course.php?course_id=${initialSelectedCourseId}&tab=${initialActiveTab}&fetch_data=true\`)
-                .then(response => response.json())
-                .then(data => {
-                    if (initialActiveTab === \'announcements\') {
-                        initialContentElement.innerHTML = data.announcements_html;
-                    } else if (initialActiveTab === \'assignments\') {
-                        initialContentElement.innerHTML = \`<div class="alert alert-info">上傳作業功能需重新載入頁面，請<a href="student_course.php?course_id=${initialSelectedCourseId}&tab=assignments">點此重新載入</a>。</div><hr/>${data.assignments_html}\
-                    } else if (initialActiveTab === \'grades\') {
-                        initialContentElement.innerHTML = data.grades_html;
-                    }
-                })
-                .catch(error => {
-                    console.error(\'Error fetching initial tab content:\', error);
-                    initialContentElement.innerHTML = \'<div class="alert alert-danger">載入失敗，請稍後再試。</div>\
-                });
         }
     });
+});
 </script>
 </body>
 </html>
