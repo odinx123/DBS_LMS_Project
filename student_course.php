@@ -3,6 +3,8 @@ require_once __DIR__ . '/auth.php';
 require_student();
 
 $studentId = $_SESSION['userid'];
+// 提前釋放 Session 鎖，避免阻塞後續的 AJAX 請求
+session_write_close();
 $error = '';
 $success = '';
 
@@ -50,6 +52,8 @@ $selectedAssignId = trim($_POST['assign_id'] ?? '');
 
 // Handle AJAX requests for tab content
 if ($selectedCourseId !== '' && isset($_GET['fetch_data']) && $_GET['fetch_data'] === 'true') {
+    // 關閉錯誤顯示以防干擾 JSON 輸出
+    error_reporting(0);
     header('Content-Type: application/json');
     $response = [
         'announcements_html' => '',
@@ -57,7 +61,7 @@ if ($selectedCourseId !== '' && isset($_GET['fetch_data']) && $_GET['fetch_data'
         'grades_html' => ''
     ];
 
-    ob_start(); // Start output buffering
+    ob_start();
 
     if ($activeInnerTab === 'announcements') {
         $annStmt = $conn->prepare("SELECT Announce_ID, Title, Content, Publish_Time, Update_Time FROM announcement WHERE Course_ID = :cid ORDER BY Publish_Time DESC");
@@ -351,9 +355,10 @@ if ($selectedCourseId !== '') {
                 </li>
             </ul>
 
-            <div id="tab-content-container">
-                <div id="announcements-content" class="tab-pane fade <?php echo $activeInnerTab === 'announcements' ? 'show active' : ''; ?>">
-                    <?php if ($activeInnerTab === 'announcements'): // Only render if active, or it will be loaded via AJAX ?>
+            <div id="tab-content-container" class="tab-content">
+                <!-- 修正1：所有的 tab-pane 加上 pt-3 統一間距 -->
+                <div id="announcements-content" class="tab-pane fade pt-3 <?php echo $activeInnerTab === 'announcements' ? 'show active' : ''; ?>">
+                    <?php if ($activeInnerTab === 'announcements'): ?>
                         <?php if (count($announcements) === 0): ?>
                             <div class="alert alert-info">此課程目前沒有公告。</div>
                         <?php else: ?>
@@ -369,11 +374,13 @@ if ($selectedCourseId !== '') {
                                 <?php endforeach; ?>
                             </div>
                         <?php endif; ?>
+                    <?php else: // Content will be loaded via AJAX ?>
+                        <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">載入中...</div></div>
                     <?php endif; ?>
                 </div>
 
-                <div id="assignments-content" class="tab-pane fade <?php echo $activeInnerTab === 'assignments' ? 'show active' : ''; ?>">
-                    <?php if ($activeInnerTab === 'assignments'): // Only render if active, or it will be loaded via AJAX ?>
+                <div id="assignments-content" class="tab-pane fade pt-3 <?php echo $activeInnerTab === 'assignments' ? 'show active' : ''; ?>">
+                    <?php if ($activeInnerTab === 'assignments'): ?>
                         <?php if (count($assignments) === 0): ?>
                             <div class="alert alert-warning">此課程目前沒有作業可上傳。</div>
                         <?php else: ?>
@@ -435,11 +442,13 @@ if ($selectedCourseId !== '') {
                                 </table>
                             </div>
                         <?php endif; ?>
+                    <?php else: // Content will be loaded via AJAX ?>
+                        <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">載入中...</div></div>
                     <?php endif; ?>
                 </div>
 
-                <div id="grades-content" class="tab-pane fade <?php echo $activeInnerTab === 'grades' ? 'show active' : ''; ?>">
-                    <?php if ($activeInnerTab === 'grades'): // Only render if active, or it will be loaded via AJAX ?>
+                <div id="grades-content" class="tab-pane fade pt-3 <?php echo $activeInnerTab === 'grades' ? 'show active' : ''; ?>">
+                    <?php if ($activeInnerTab === 'grades'): ?>
                         <?php if (count($grades) === 0): ?>
                             <div class="alert alert-info">此課程目前沒有成績資料。</div>
                         <?php else: ?>
@@ -466,6 +475,8 @@ if ($selectedCourseId !== '') {
                                 </table>
                             </div>
                         <?php endif; ?>
+                    <?php else: // Content will be loaded via AJAX ?>
+                        <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">載入中...</div></div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -496,19 +507,27 @@ if ($selectedCourseId !== '') {
             const targetContent = document.getElementById(selectedTab + '-content');
 
             if (targetContent) {
+                console.log('Fetching data for tab:', selectedTab, 'Course:', selectedCourseId);
                 targetContent.classList.add('show', 'active');
-                targetContent.innerHTML = '<div class="text-center py-5">載入中...</div>';
+                targetContent.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">載入中...</div></div>';
 
                 fetch(`student_course.php?course_id=${selectedCourseId}&tab=${selectedTab}&fetch_data=true`)
-                    .then(response => response.json())
+                    .then(response => {
+                        console.log('Response received status:', response.status);
+                        return response.json();
+                    })
                     .then(data => {
-                        // 根據分頁填入 HTML
-                        if (selectedTab === 'announcements') targetContent.innerHTML = data.announcements_html;
-                        else if (selectedTab === 'assignments') {
-                            // 提示使用者上傳功能需重新整理，或在後端把 Form 也寫入 JSON
-                            targetContent.innerHTML = `<div class="alert alert-info">上傳作業後頁面將自動重整。</div>${data.assignments_html}`;
+                        console.log('JSON data parsed:', data);
+                        // 修正2：移除重複包裹的 pt-3 及多餘的 alert，直接填入對應的 html
+                        if (selectedTab === 'announcements') {
+                            targetContent.innerHTML = data.announcements_html;
                         }
-                        else if (selectedTab === 'grades') targetContent.innerHTML = data.grades_html;
+                        else if (selectedTab === 'assignments') {
+                            targetContent.innerHTML = data.assignments_html;
+                        }
+                        else if (selectedTab === 'grades') {
+                            targetContent.innerHTML = data.grades_html;
+                        }
                     })
                     .catch(error => {
                         targetContent.innerHTML = '<div class="alert alert-danger">載入失敗。</div>';
@@ -520,4 +539,3 @@ if ($selectedCourseId !== '') {
 </script>
 </body>
 </html>
-
