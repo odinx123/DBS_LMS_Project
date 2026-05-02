@@ -104,7 +104,7 @@ if ($selectedCourseId !== '' && isset($_GET['fetch_data']) && $_GET['fetch_data'
                 $dueTs = strtotime((string)$a['Due_Date']);
                 $isOverdue = $dueTs !== false ? (time() > $dueTs) : false;
                 echo '<tr>';
-                echo '<td>' . htmlspecialchars($a['Title'], ENT_QUOTES, 'UTF-8') . '</td>';
+                echo '<td><a href="student_assignment_detail.php?assign_id=' . urlencode($a['Assign_ID']) . '&course_id=' . urlencode($selectedCourseId) . '">' . htmlspecialchars($a['Title'], ENT_QUOTES, 'UTF-8') . '</a></td>';
                 echo '<td>' . htmlspecialchars($a['Due_Date'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>';
                 echo '<td>' . ($isOverdue ? '<span class="text-danger">已超期</span>' : '<span class="text-success">可上傳</span>') . '</td>';
                 echo '<td>' . htmlspecialchars($a['Submit_Time'] ?? '尚未繳交', ENT_QUOTES, 'UTF-8') . '</td>';
@@ -154,110 +154,6 @@ $grades = [];
 
 
 // Upload handling in "assignments" tab context
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_submit'])) {
-    $activeInnerTab = 'assignments';
-    $courseId = trim($_POST['course_id'] ?? '');
-    $assignId = trim($_POST['assign_id'] ?? '');
-    $file = $_FILES['submission_file'] ?? null;
-    $selectedCourseId = $courseId;
-    $selectedAssignId = $assignId;
-
-    if ($courseId === '' || $assignId === '') {
-        $error = '請先選擇作業再上傳。';
-    } elseif (!in_array($courseId, $enrolledCourseIds, true)) {
-        $error = '無法上傳：課程不在你的加選清單。';
-    } else {
-        $stmt = $conn->prepare("
-            SELECT a.Assign_ID, a.Due_Date
-            FROM assignment a
-            JOIN enrollment e ON e.Course_ID = a.Course_ID
-            WHERE a.Assign_ID = :aid
-              AND a.Course_ID = :cid
-              AND e.Student_ID = :sid
-            LIMIT 1
-        ");
-        $stmt->bindParam(':aid', $assignId);
-        $stmt->bindParam(':cid', $courseId);
-        $stmt->bindParam(':sid', $studentId);
-        $stmt->execute();
-        $assignment = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$assignment) {
-            $error = '無法上傳：作業不存在或不屬於目前課程。';
-        }
-    }
-
-    if ($error === '') {
-        $dueTs = strtotime((string)$assignment['Due_Date']);
-        if ($dueTs === false) {
-            $error = '無法上傳：作業截止日資料異常。';
-        } elseif (time() > $dueTs) {
-            $error = '此作業已超過繳交期限，無法上傳。';
-        } elseif (!$file || !isset($file['error']) || (int)$file['error'] !== UPLOAD_ERR_OK) {
-            $error = '上傳失敗：請確認檔案並重試。';
-        } else {
-            $originalName = $file['name'] ?? '';
-            $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-            if ($ext === '' || !isAllowedExtension($ext)) {
-                $error = '不支援的檔案格式。';
-            } elseif ((int)$file['size'] <= 0 || (int)$file['size'] > 25 * 1024 * 1024) {
-                $error = '檔案大小不正確（建議小於 25MB）。';
-            } else {
-                $uploadDir = __DIR__ . '/uploads/submissions';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
-                }
-
-                $safeName = bin2hex(random_bytes(16)) . '.' . $ext;
-                $targetPath = $uploadDir . DIRECTORY_SEPARATOR . $safeName;
-                $relativePath = 'uploads/submissions/' . $safeName;
-
-                if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
-                    $error = '上傳失敗：伺服器無法保存檔案。';
-                } else {
-                    $check = $conn->prepare("
-                        SELECT Submit_ID
-                        FROM submission
-                        WHERE Assign_ID = :aid AND Student_ID = :sid
-                        LIMIT 1
-                    ");
-                    $check->bindParam(':aid', $assignId);
-                    $check->bindParam(':sid', $studentId);
-                    $check->execute();
-                    $existing = $check->fetch(PDO::FETCH_ASSOC);
-
-                    if ($existing) {
-                        $update = $conn->prepare("
-                            UPDATE submission
-                            SET File_Path = :fp,
-                                Submit_Time = NOW(),
-                                Score = NULL,
-                                Comment = NULL
-                            WHERE Submit_ID = :submitId
-                        ");
-                        $update->bindParam(':fp', $relativePath);
-                        $update->bindParam(':submitId', $existing['Submit_ID']);
-                        $update->execute();
-                    } else {
-                        $newSubmitId = generateId('sub_');
-                        $insert = $conn->prepare("
-                            INSERT INTO submission (Submit_ID, Assign_ID, Student_ID, File_Path, Score, Comment)
-                            VALUES (:submitId, :aid, :sid, :fp, NULL, NULL)
-                        ");
-                        $insert->bindParam(':submitId', $newSubmitId);
-                        $insert->bindParam(':aid', $assignId);
-                        $insert->bindParam(':sid', $studentId);
-                        $insert->bindParam(':fp', $relativePath);
-                        $insert->execute();
-                    }
-
-                    $success = '上傳完成（已寫入/覆寫繳交紀錄）。';
-                    $selectedAssignId = '';
-                }
-            }
-        }
-    }
-}
 
 // Data fetching based on active tab - Moved after POST handling to ensure latest data
 $announcements = [];
@@ -384,36 +280,6 @@ if ($selectedCourseId !== '') {
                         <?php if (count($assignments) === 0): ?>
                             <div class="alert alert-warning">此課程目前沒有作業可上傳。</div>
                         <?php else: ?>
-                            <div class="card mb-3">
-                                <div class="card-body">
-                                    <form method="POST" enctype="multipart/form-data" class="row g-3">
-                                        <input type="hidden" name="tab" value="assignments">
-                                        <input type="hidden" name="course_id" value="<?php echo htmlspecialchars($selectedCourseId, ENT_QUOTES, 'UTF-8'); ?>">
-                                        <div class="col-md-7">
-                                            <label class="form-label">作業</label>
-                                            <select class="form-select" name="assign_id" required>
-                                                <option value="">請選擇作業</option>
-                                                <?php foreach ($assignments as $a): ?>
-                                                    <?php
-                                                        $label = $a['Title'] . '（截止：' . ($a['Due_Date'] ?? '-') . '）';
-                                                    ?>
-                                                    <option value="<?php echo htmlspecialchars($a['Assign_ID'], ENT_QUOTES, 'UTF-8'); ?>"
-                                                        <?php echo $selectedAssignId === $a['Assign_ID'] ? 'selected' : ''; ?>>
-                                                        <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-5">
-                                            <label class="form-label">上傳檔案</label>
-                                            <input type="file" name="submission_file" class="form-control" accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.txt,.png,.jpg,.jpeg" required>
-                                        </div>
-                                        <div class="col-12">
-                                            <button type="submit" name="upload_submit" value="1" class="btn btn-primary">上傳作業</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
 
                             <div class="table-responsive">
                                 <table class="table table-striped">
@@ -432,7 +298,11 @@ if ($selectedCourseId !== '') {
                                                 $isOverdue = $dueTs !== false ? (time() > $dueTs) : false;
                                             ?>
                                             <tr>
-                                                <td><?php echo htmlspecialchars($a['Title'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                                <td>
+                                                    <a href="student_assignment_detail.php?assign_id=<?php echo urlencode($a['Assign_ID']); ?>&course_id=<?php echo urlencode($selectedCourseId); ?>">
+                                                        <?php echo htmlspecialchars($a['Title'], ENT_QUOTES, 'UTF-8'); ?>
+                                                    </a>
+                                                </td>
                                                 <td><?php echo htmlspecialchars($a['Due_Date'] ?? '', ENT_QUOTES, 'UTF-8'); ?></td>
                                                 <td><?php echo $isOverdue ? '<span class="text-danger">已超期</span>' : '<span class="text-success">可上傳</span>'; ?></td>
                                                 <td><?php echo htmlspecialchars($a['Submit_Time'] ?? '尚未繳交', ENT_QUOTES, 'UTF-8'); ?></td>

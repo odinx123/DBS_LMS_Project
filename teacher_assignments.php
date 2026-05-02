@@ -245,8 +245,9 @@ $assignments = $listStmt->fetchAll(PDO::FETCH_ASSOC);
                                             <div class="fw-semibold"><?php echo htmlspecialchars($a['Title'], ENT_QUOTES, 'UTF-8'); ?></div>
                                         </td>
                                         <td><?php echo htmlspecialchars($a['Due_Date'] ?? '', ENT_QUOTES, 'UTF-8'); ?></td>
-                                        <td>
+                                        <td class="d-flex gap-1">
                                             <a class="btn btn-outline-primary btn-sm" href="teacher_assignments.php?id=<?php echo urlencode($a['Assign_ID']); ?>">編輯</a>
+                                            <a class="btn btn-outline-success btn-sm" href="teacher_assignment_submissions.php?id=<?php echo urlencode($a['Assign_ID']); ?>">管理繳交</a>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
