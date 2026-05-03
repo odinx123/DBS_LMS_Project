@@ -72,13 +72,25 @@ if ($selectedCourseId !== '' && isset($_GET['fetch_data']) && $_GET['fetch_data'
             echo '<div class="alert alert-info">此課程目前沒有公告。</div>';
         } else {
             echo '<div class="list-group">';
-            foreach ($announcements as $ann) {
+            foreach ($announcements as $index => $ann) {
+                $collapseId = 'collapse-ajax-' . $index;
                 echo '<div class="list-group-item">';
                 echo '<div class="d-flex justify-content-between">';
                 echo '<strong>' . htmlspecialchars($ann['Title'], ENT_QUOTES, 'UTF-8') . '</strong>';
                 echo '<span class="text-muted small">' . htmlspecialchars($ann['Publish_Time'] ?? '', ENT_QUOTES, 'UTF-8') . '</span>';
                 echo '</div>';
-                echo '<div class="mt-2" style="white-space: pre-wrap;">' . nl2br(htmlspecialchars($ann['Content'] ?? '', ENT_QUOTES, 'UTF-8')) . '</div>';
+                if (!empty($ann['Content'])) {
+                    echo '<div class="mt-2">';
+                    echo '<button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#' . $collapseId . '" aria-expanded="false" aria-controls="' . $collapseId . '">';
+                    echo '查看內容';
+                    echo '</button>';
+                    echo '<div class="collapse" id="' . $collapseId . '">';
+                    echo '<div class="card card-body" style="white-space: pre-wrap;">';
+                    echo nl2br(htmlspecialchars($ann['Content'], ENT_QUOTES, 'UTF-8'));
+                    echo '</div>';
+                    echo '</div>';
+                    echo '</div>';
+                }
                 echo '</div>';
             }
             echo '</div>';
@@ -259,13 +271,25 @@ if ($selectedCourseId !== '') {
                             <div class="alert alert-info">此課程目前沒有公告。</div>
                         <?php else: ?>
                             <div class="list-group">
-                                <?php foreach ($announcements as $ann): ?>
+                                <?php foreach ($announcements as $index => $ann): ?>
+                                    <?php $collapseId = 'collapse-' . $index; ?>
                                     <div class="list-group-item">
                                         <div class="d-flex justify-content-between">
                                             <strong><?php echo htmlspecialchars($ann['Title'], ENT_QUOTES, 'UTF-8'); ?></strong>
                                             <span class="text-muted small"><?php echo htmlspecialchars($ann['Publish_Time'] ?? '', ENT_QUOTES, 'UTF-8'); ?></span>
                                         </div>
-                                        <div class="mt-2" style="white-space: pre-wrap;"><?php echo nl2br(htmlspecialchars($ann['Content'] ?? '', ENT_QUOTES, 'UTF-8')); ?></div>
+                                        <?php if (!empty($ann['Content'])): ?>
+                                            <div class="mt-2">
+                                                <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo $collapseId; ?>" aria-expanded="false" aria-controls="<?php echo $collapseId; ?>">
+                                                    查看內容
+                                                </button>
+                                                <div class="collapse" id="<?php echo $collapseId; ?>">
+                                                    <div class="card card-body" style="white-space: pre-wrap;">
+                                                        <?php echo nl2br(htmlspecialchars($ann['Content'], ENT_QUOTES, 'UTF-8')); ?>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -407,5 +431,6 @@ if ($selectedCourseId !== '') {
     });
 });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

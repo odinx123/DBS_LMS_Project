@@ -122,6 +122,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $formDescription = $description;
                 $formDueDate = $dueRaw;
             }
+
+            if ($success !== '' && isset($_POST['publish_announcement'])) {
+                $annId = generateId('ann_');
+                $annTitle = '【新作業】' . $title;
+                $annContent = "課程已發布新作業：\n名稱：" . $title . "\n說明：" . $description . "\n截止日期：" . $dueDate;
+                $annInsert = $conn->prepare("
+                    INSERT INTO announcement (Announce_ID, Course_ID, Teacher_ID, Title, Content)
+                    VALUES (:aid, :cid, :tid, :title, :content)
+                ");
+                $annInsert->bindParam(':aid', $annId);
+                $annInsert->bindParam(':cid', $courseId);
+                $annInsert->bindParam(':tid', $teacherId);
+                $annInsert->bindParam(':title', $annTitle);
+                $annInsert->bindParam(':content', $annContent);
+                $annInsert->execute();
+            }
         }
     }
 }
@@ -203,7 +219,12 @@ $assignments = $listStmt->fetchAll(PDO::FETCH_ASSOC);
                         <div class="mb-3">
                             <label class="form-label">繳交期限</label>
                             <input type="datetime-local" name="due_date" class="form-control" required
-                                   value="<?php echo htmlspecialchars($formDueDate, ENT_QUOTES, 'UTF-8'); ?>">
+                                    value="<?php echo htmlspecialchars($formDueDate, ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" name="publish_announcement" class="form-check-input" id="publish_announcement">
+                            <label class="form-check-label" for="publish_announcement">同步發布公告</label>
                         </div>
 
                         <button type="submit" class="btn btn-primary w-100">儲存</button>
@@ -213,6 +234,27 @@ $assignments = $listStmt->fetchAll(PDO::FETCH_ASSOC);
                                 <a class="btn btn-link p-0" href="teacher_assignments.php">取消編輯</a>
                             </div>
                         <?php endif; ?>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 學期成績統計入口 -->
+            <div class="card mt-3">
+                <div class="card-header">學期成績統計</div>
+                <div class="card-body">
+                    <form action="teacher_course_grades.php" method="GET">
+                        <div class="mb-3">
+                            <label class="form-label">選擇課程</label>
+                            <select name="course_id" class="form-select" required>
+                                <option value="">請選擇課程</option>
+                                <?php foreach ($courses as $c): ?>
+                                    <option value="<?php echo htmlspecialchars($c['Course_ID'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <?php echo htmlspecialchars($c['Course_Name'], ENT_QUOTES, 'UTF-8'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-outline-info w-100">查看學期成績統計</button>
                     </form>
                 </div>
             </div>

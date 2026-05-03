@@ -53,7 +53,8 @@ $announcements = array_values(array_filter($rows, function ($r) {
         <div class="alert alert-info">目前沒有公告。</div>
     <?php else: ?>
         <div class="list-group">
-            <?php foreach ($announcements as $a): ?>
+            <?php foreach ($announcements as $index => $a): ?>
+                <?php $collapseId = 'collapse-' . $index; ?>
                 <div class="list-group-item">
                     <div class="d-flex justify-content-between align-items-start gap-3">
                         <div>
@@ -70,8 +71,15 @@ $announcements = array_values(array_filter($rows, function ($r) {
                     </div>
 
                     <?php if (!empty($a['Content'])): ?>
-                        <div class="mt-2" style="white-space: pre-wrap;">
-                            <?php echo nl2br(htmlspecialchars($a['Content'], ENT_QUOTES, 'UTF-8')); ?>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo $collapseId; ?>" aria-expanded="false" aria-controls="<?php echo $collapseId; ?>">
+                                顯示/隱藏內容
+                            </button>
+                            <div class="collapse" id="<?php echo $collapseId; ?>">
+                                <div class="card card-body" style="white-space: pre-wrap;">
+                                    <?php echo nl2br(htmlspecialchars($a['Content'], ENT_QUOTES, 'UTF-8')); ?>
+                                </div>
+                            </div>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -79,6 +87,7 @@ $announcements = array_values(array_filter($rows, function ($r) {
         </div>
     <?php endif; ?>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 

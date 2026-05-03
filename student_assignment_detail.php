@@ -31,10 +31,11 @@ if ($assignId === '' || $courseId === '') {
 } else {
     // 驗證學生是否有權限存取此課程和作業
     $stmt = $conn->prepare("
-        SELECT a.Assign_ID, a.Course_ID, c.Course_Name, a.Title, a.Description, a.Due_Date
+        SELECT a.Assign_ID, a.Course_ID, c.Course_Name, a.Title, a.Description, a.Due_Date, st.Class
         FROM assignment a
         JOIN course c ON a.Course_ID = c.Course_ID
         JOIN enrollment e ON e.Course_ID = c.Course_ID
+        JOIN student st ON e.Student_ID = st.Student_ID
         WHERE a.Assign_ID = :aid AND a.Course_ID = :cid AND e.Student_ID = :sid
         LIMIT 1
     ");
@@ -58,6 +59,32 @@ if ($assignId === '' || $courseId === '') {
         $subStmt->bindParam(':sid', $studentId);
         $subStmt->execute();
         $submission = $subStmt->fetch(PDO::FETCH_ASSOC);
+
+        // 獲取同班級的成績分佈
+        $studentClass = $assignment['Class'];
+        $distStmt = $conn->prepare("
+            SELECT s.Score
+            FROM submission s
+            JOIN student st ON s.Student_ID = st.Student_ID
+            WHERE s.Assign_ID = :aid AND st.Class = :class AND s.Score IS NOT NULL
+        ");
+        $distStmt->bindParam(':aid', $assignId);
+        $distStmt->bindParam(':class', $studentClass);
+        $distStmt->execute();
+        $allScores = $distStmt->fetchAll(PDO::FETCH_COLUMN);
+
+        // 將成績分佈分桶 (0-10, 11-20, ..., 91-100)
+        $bins = array_fill(0, 10, 0);
+        foreach ($allScores as $score) {
+            $binIndex = floor(($score - 0.01) / 10);
+            if ($binIndex < 0) $binIndex = 0;
+            if ($binIndex > 9) $binIndex = 9;
+            $bins[$binIndex]++;
+        }
+        $scoreDistribution = [
+            'labels' => ['0-10', '11-20', '21-30', '31-40', '41-50', '51-60', '61-70', '71-80', '81-90', '91-100'],
+            'data' => $bins
+        ];
     }
 }
 
@@ -155,6 +182,7 @@ if ($assignment) {
     <title><?php echo $assignment ? htmlspecialchars($assignment['Title'], ENT_QUOTES, 'UTF-8') : '作業'; ?> - LMS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <div class="container" style="padding-top: 28px;">
@@ -191,6 +219,53 @@ if ($assignment) {
                 <p><strong>描述:</strong></p>
                 <div class="alert alert-info" style="white-space: pre-wrap;"><?php echo nl2br(htmlspecialchars($assignment['Description'] ?? '無描述', ENT_QUOTES, 'UTF-8')); ?></div>
             </div>
+    
+            <?php if (isset($scoreDistribution)): ?>
+                <div class="card mb-3">
+                    <div class="card-header">全班成績分佈 (班級: <?php echo htmlspecialchars($assignment['Class'], ENT_QUOTES, 'UTF-8'); ?>)</div>
+                    <div class="card-body">
+                        <canvas id="scoreChart" style="max-height: 400px;"></canvas>
+                    </div>
+                </div>
+    
+                <script>
+                    (function() {
+                        const ctx = document.getElementById('scoreChart').getContext('2d');
+                        const labels = <?php echo json_encode($scoreDistribution['labels']); ?>;
+                        const data = <?php echo json_encode($scoreDistribution['data']); ?>;
+    
+                        new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: '人數',
+                                    data: data,
+                                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                                    borderColor: 'rgba(54, 162, 235, 1)',
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            stepSize: 1
+                                        }
+                                    }
+                                },
+                                plugins: {
+                                    legend: {
+                                        display: false
+                                    }
+                                }
+                            }
+                        });
+                    })();
+                </script>
+            <?php endif; ?>
         </div>
 
         <div class="card mb-3">
