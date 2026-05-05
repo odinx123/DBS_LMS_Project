@@ -1,57 +1,63 @@
 <?php
-// Minimal PHPMailer wrapper for announcement email.
-// If PHPMailer or SMTP config is missing, we block with a clear error.
-
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
+require_once __DIR__ . '/PHPMailer/Exception.php';
+require_once __DIR__ . '/PHPMailer/PHPMailer.php';
+require_once __DIR__ . '/PHPMailer/SMTP.php';
+
+function loadEnv($path) {
+    if (!file_exists($path)) return;
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        // 過濾掉註解
+        if (strpos(trim($line), '#') === 0) continue;
+        // 確保每一行都有等號
+        if (strpos($line, '=') !== false) {
+            list($name, $value) = explode('=', $line, 2);
+            $_ENV[trim($name)] = trim($value);
+        }
+    }
+}
+loadEnv(__DIR__ . '/.env');
+
 function sendMail(string $to, string $subject, string $body): void
 {
-    // Try to load Composer autoloader if present.
-    $autoload = __DIR__ . '/vendor/autoload.php';
-    if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class) && file_exists($autoload)) {
-        require_once $autoload;
-    }
+    // 從環境變數讀取，若讀不到則為空字串
+    $smtpUser = $_ENV['MAIL_USER'] ?? '';
+    $smtpPass = $_ENV['MAIL_PASS'] ?? '';
+    $fromEmail = $_ENV['MAIL_FROM'] ?? '';
 
-    if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
-        throw new RuntimeException('PHPMailer 未安裝（請先把 PHPMailer 安裝到專案/vendor）。');
-    }
-
-    // Read SMTP config from environment variables.
-    // You can later set them in Windows environment variables or via a config file.
-    $smtpHost = getenv('SMTP_HOST') ?: '';
-    $smtpPort = getenv('SMTP_PORT') ?: '';
-    $smtpUser = getenv('SMTP_USER') ?: '';
-    $smtpPass = getenv('SMTP_PASS') ?: '';
-    $fromEmail = getenv('SMTP_FROM_EMAIL') ?: '';
-    $fromName = getenv('SMTP_FROM_NAME') ?: 'LMS';
-
-    if ($smtpHost === '' || $smtpPort === '' || $smtpUser === '' || $smtpPass === '' || $fromEmail === '') {
-        throw new RuntimeException('SMTP 未設定，已阻擋送信。');
+    // 檢查是否漏設設定檔
+    if (empty($smtpUser) || empty($smtpPass)) {
+        throw new RuntimeException('錯誤：請確認 .env 檔案中已設定 MAIL_USER 與 MAIL_PASS。');
     }
 
     $mail = new PHPMailer(true);
 
-    // SMTP configuration
-    $mail->isSMTP();
-    $mail->Host = $smtpHost;
-    $mail->SMTPAuth = true;
-    $mail->Username = $smtpUser;
-    $mail->Password = $smtpPass;
-    $mail->Port = (int)$smtpPort;
+    try {
+        // Server settings
+        $mail->isSMTP();
+        $mail->Host       = 'ms.nsysu.edu.tw'; // 中山大學伺服器
+        $mail->SMTPAuth   = true;
+        $mail->Username   = $smtpUser;
+        $mail->Password   = $smtpPass;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = 587;
+        $mail->CharSet    = 'UTF-8';
 
-    // TLS/SSL: keep flexible; you may adjust later.
-    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        // Recipients
+        $mail->setFrom($fromEmail, 'LMS 公告系統');
+        $mail->addAddress($to);
 
-    // Charset / headers
-    $mail->CharSet = 'UTF-8';
-    $mail->setFrom($fromEmail, $fromName);
-    $mail->addAddress($to);
+        // Content
+        $mail->isHTML(true); 
+        $mail->Subject = $subject;
+        $mail->Body    = $body;
+        $mail->AltBody = strip_tags($body); // 自動把 HTML 標籤拿掉當成純文字備份
 
-    $mail->Subject = $subject;
-    $mail->Body = $body;
-    $mail->AltBody = $body;
-
-    $mail->send();
+        $mail->send();
+    } catch (PHPMailerException $e) {
+        throw new Exception("郵件發送失敗: {$mail->ErrorInfo}");
+    }
 }
-

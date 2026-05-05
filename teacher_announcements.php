@@ -99,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $courseId = trim($_POST['course_id'] ?? '');
     $title = trim($_POST['title'] ?? '');
     $content = trim($_POST['content'] ?? '');
+    $autoPublish = isset($_POST['auto_publish']);
 
     if ($courseId === '' || $title === '' || $content === '') {
         $error = '請填寫完整欄位（課程 / 標題 / 內容）。';
@@ -111,23 +112,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if (!$courseCheck->fetchColumn()) {
             $error = '所選課程不屬於你，請重新選擇。';
         } else {
+            $finalAnnounceId = $announceId;
             if ($announceId === '') {
                 // Create
-                $newId = generateId('ann_');
+                $finalAnnounceId = generateId('ann_');
                 $insert = $conn->prepare("
                     INSERT INTO announcement (Announce_ID, Course_ID, Teacher_ID, Title, Content)
                     VALUES (:aid, :cid, :tid, :title, :content)
                 ");
-                $insert->bindParam(':aid', $newId);
+                $insert->bindParam(':aid', $finalAnnounceId);
                 $insert->bindParam(':cid', $courseId);
                 $insert->bindParam(':tid', $teacherId);
                 $insert->bindParam(':title', $title);
                 $insert->bindParam(':content', $content);
                 $insert->execute();
                 $success = '公告已建立。';
-                $formCourseId = $courseId;
-                $formTitle = $title;
-                $formContent = $content;
             } else {
                 // Update: ensure announcement belongs to teacher via course join
                 $update = $conn->prepare("
@@ -139,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         a.Content = :content
                     WHERE a.Announce_ID = :aid AND c.Teacher_ID = :tid
                 ");
-                $update->bindParam(':aid', $announceId);
+                $update->bindParam(':aid', $finalAnnounceId);
                 $update->bindParam(':cid', $courseId);
                 $update->bindParam(':tid', $teacherId);
                 $update->bindParam(':title', $title);
@@ -151,9 +150,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 } else {
                     $success = '公告已更新。';
                 }
+            }
+
+            if ($error === '') {
                 $formCourseId = $courseId;
                 $formTitle = $title;
                 $formContent = $content;
+
+                // Auto publish logic: send email if checked
+                if ($autoPublish) {
+                    $recipientsStmt = $conn->prepare("
+                        SELECT s.Email
+                        FROM enrollment e
+                        JOIN student s ON e.Student_ID = s.Student_ID
+                        WHERE e.Course_ID = :cid AND s.Email IS NOT NULL AND s.Email <> ''
+                    ");
+                    $recipientsStmt->bindParam(':cid', $courseId);
+                    $recipientsStmt->execute();
+                    $recipients = $recipientsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                    $sentCount = 0;
+                    $mailError = '';
+                    foreach ($recipients as $r) {
+                        try {
+                            sendMail($r['Email'], '【LMS 公告】' . $title, (string)$content);
+                            $sentCount++;
+                        } catch (Throwable $e) {
+                            $mailError = '發信過程中發生錯誤：' . $e->getMessage();
+                            break;
+                        }
+                    }
+                    if ($mailError === '') {
+                        $success .= " 並已自動發送郵件給 {$sentCount} 位學生。";
+                    } else {
+                        $error = $mailError;
+                    }
+                }
             }
         }
     }
@@ -232,6 +264,11 @@ $announcements = $annStmt->fetchAll(PDO::FETCH_ASSOC);
                         <div class="mb-3">
                             <label class="form-label">內容</label>
                             <textarea name="content" class="form-control" rows="5" required><?php echo htmlspecialchars($formContent, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" name="auto_publish" class="form-check-input" id="auto_publish">
+                            <label class="form-check-label" for="auto_publish">儲存後自動發布 (發送郵件給所有學生)</label>
                         </div>
 
                         <button type="submit" class="btn btn-primary w-100">儲存</button>
