@@ -38,12 +38,14 @@ function sendMail(string $to, string $subject, string $body): void
     try {
         // Server settings
         $mail->isSMTP();
-        $mail->Host       = 'ms.nsysu.edu.tw'; // 中山大學伺服器
+        $mail->Host       = 'student.nsysu.edu.tw'; // 中山大學伺服器
         $mail->SMTPAuth   = true;
         $mail->Username   = $smtpUser;
         $mail->Password   = $smtpPass;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port       = 587;
+        // $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->SMTPSecure = '';
+        $mail->SMTPAutoTLS = false;                   // 強制關閉自動 TLS 避免報錯
+        $mail->Port       = 25;
         $mail->CharSet    = 'UTF-8';
 
         // Recipients
