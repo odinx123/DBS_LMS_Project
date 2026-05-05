@@ -42,7 +42,7 @@ $stmt->execute();
 $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle Export
-if (isset($_GET['action']) && in_array($_GET['action'], ['export_csv', 'export_excel'])) {
+if (false && isset($_GET['action']) && in_array($_GET['action'], ['export_csv', 'export_excel'])) {
     $filename = $assignment['Course_Name'] . "_" . $assignment['Title'] . "_成績單";
     $filename = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', $filename);
     
@@ -57,6 +57,28 @@ if (isset($_GET['action']) && in_array($_GET['action'], ['export_csv', 'export_e
     $output = fopen('php://output', 'w');
     // Output BOM for Excel UTF-8 compatibility
     fwrite($output, "\xEF\xBB\xBF");
+    
+    if ($_GET['action'] === 'export_excel') {
+        // Excel 需求：值方圖數據 + 表格資料
+        fputcsv($output, ['成績分佈統計']);
+        fputcsv($output, ['分數區間', '人數']);
+        $labels = ['0-9', '10-19', '20-29', '30-39', '40-49', '50-59', '60-69', '70-79', '80-89', '90-100'];
+        
+        // 重新計算分佈數據
+        $dist = array_fill(0, 10, 0);
+        foreach ($submissions as $row) {
+            if ($row['Score'] !== null) {
+                $score = (float)$row['Score'];
+                $index = min(floor($score / 10), 9);
+                $dist[(int)$index]++;
+            }
+        }
+        
+        for ($i = 0; $i < 10; $i++) {
+            fputcsv($output, [$labels[$i], $dist[$i]]);
+        }
+        fputcsv($output, []); // 空行分隔
+    }
     
     fputcsv($output, ['學生姓名', '繳交狀態', '繳交時間', '得分', '評語']);
     
@@ -95,8 +117,15 @@ $distributionJson = json_encode(array_values($distribution));
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @media print {
-            .no-print, .btn, .card-header, .navbar {
+            .no-print, .btn, .navbar {
                 display: none !important;
+            }
+            /* PDF 需求：隱藏成績表格，顯示直方圖 */
+            .student-list-card {
+                display: none !important;
+            }
+            .stats-card {
+                display: block !important;
             }
             .container {
                 width: 100% !important;
@@ -127,7 +156,7 @@ $distributionJson = json_encode(array_values($distribution));
                 </button>
                 <ul class="dropdown-menu">
                     <li><a class="dropdown-item" href="?id=<?php echo urlencode($assignId); ?>&action=export_csv">下載 CSV</a></li>
-                    <li><a class="dropdown-item" href="?id=<?php echo urlencode($assignId); ?>&action=export_excel">下載 Excel</a></li>
+                    <!-- <li><a class="dropdown-item" href="?id=<?php echo urlencode($assignId); ?>&action=export_excel">下載 Excel</a></li> -->
                     <li><a class="dropdown-item" href="javascript:window.print()">下載 PDF (列印)</a></li>
                 </ul>
             </div>
@@ -136,7 +165,7 @@ $distributionJson = json_encode(array_values($distribution));
     </div>
 
     <!-- 統計區塊 -->
-    <div class="row mb-4 no-print">
+    <div class="row mb-4 no-print stats-card">
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -156,7 +185,7 @@ $distributionJson = json_encode(array_values($distribution));
         </div>
     </div>
 
-    <div class="card">
+    <div class="card student-list-card">
         <div class="card-header no-print">學生繳交清單</div>
         <div class="card-body p-0">
             <h4 class="d-none d-print-block text-center mb-4"><?php echo htmlspecialchars($assignment['Course_Name'] . " - " . $assignment['Title'], ENT_QUOTES, 'UTF-8'); ?> 成績單</h4>

@@ -57,7 +57,7 @@ foreach ($scoresData as $row) {
 }
 
 // Handle Export
-if (isset($_GET['action']) && in_array($_GET['action'], ['export_csv', 'export_excel'])) {
+if (false && isset($_GET['action']) && in_array($_GET['action'], ['export_csv', 'export_excel'])) {
     $filename = $course['Course_Name'] . "_學期成績單";
     $filename = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', $filename);
     
@@ -148,7 +148,7 @@ $assignTitlesJson = json_encode(array_column($assignments, 'Title'));
                 </button>
                 <ul class="dropdown-menu">
                     <li><a class="dropdown-item" href="?course_id=<?php echo urlencode($courseId); ?>&action=export_csv">下載 CSV</a></li>
-                    <li><a class="dropdown-item" href="?course_id=<?php echo urlencode($courseId); ?>&action=export_excel">下載 Excel</a></li>
+<!-- <li><a class="dropdown-item" href="?course_id=<?php echo urlencode($courseId); ?>&action=export_excel">下載 Excel</a></li> -->
                     <li><a class="dropdown-item" href="javascript:window.print()">下載 PDF (列印)</a></li>
                 </ul>
             </div>
