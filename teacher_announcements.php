@@ -92,8 +92,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_announce_id'])) 
     }
 }
 
-// Handle create/update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
+// Handle delete
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $action = $_POST['action'];
+
+    if ($action === 'save') {
     $action = $_POST['action'];
     $announceId = trim($_POST['announce_id'] ?? '');
     $courseId = trim($_POST['course_id'] ?? '');
@@ -189,17 +192,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
         }
     }
+    } elseif ($action === 'delete') {
+        $deleteId = trim($_POST['announce_id'] ?? '');
+        if ($deleteId !== '') {
+            $delStmt = $conn->prepare("
+                DELETE a FROM announcement a
+                JOIN course c ON a.Course_ID = c.Course_ID
+                WHERE a.Announce_ID = :aid AND c.Teacher_ID = :tid
+            ");
+            $delStmt->bindParam(':aid', $deleteId);
+            $delStmt->bindParam(':tid', $teacherId);
+            $delStmt->execute();
+
+            if ($delStmt->rowCount() > 0) {
+                $success = '公告已成功刪除。';
+            } else {
+                $error = '刪除失敗：公告不存在或不屬於你的課程。';
+            }
+        }
+    }
 }
 
 // Fetch announcements list for teacher
-$annStmt = $conn->prepare("
+$filterCourseId = $_GET['filter_course_id'] ?? '';
+$sql = "
     SELECT a.Announce_ID, a.Course_ID, c.Course_Name, a.Title, a.Content, a.Publish_Time, a.Update_Time
     FROM announcement a
     JOIN course c ON a.Course_ID = c.Course_ID
     WHERE c.Teacher_ID = :tid
-    ORDER BY a.Publish_Time DESC
-");
+";
+if ($filterCourseId !== '') {
+    $sql .= " AND a.Course_ID = :cid";
+}
+$sql .= " ORDER BY a.Publish_Time DESC";
+
+$annStmt = $conn->prepare($sql);
 $annStmt->bindParam(':tid', $teacherId);
+if ($filterCourseId !== '') {
+    $annStmt->bindParam(':cid', $filterCourseId);
+}
 $annStmt->execute();
 $announcements = $annStmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
@@ -284,7 +315,20 @@ $announcements = $annStmt->fetchAll(PDO::FETCH_ASSOC);
 
         <div class="col-lg-7">
             <div class="card">
-                <div class="card-header">公告列表</div>
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <span>公告列表</span>
+                    <form method="GET" class="d-flex gap-2 align-items-center" style="margin:0;">
+                        <select name="filter_course_id" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                            <option value="">全部課程</option>
+                            <?php foreach ($courses as $c): ?>
+                                <option value="<?php echo htmlspecialchars($c['Course_ID'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    <?php echo ($filterCourseId === $c['Course_ID']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($c['Course_Name'], ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </form>
+                </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-striped table-hover mb-0">
@@ -313,6 +357,11 @@ $announcements = $annStmt->fetchAll(PDO::FETCH_ASSOC);
                                                 <form method="POST" style="margin:0;">
                                                     <input type="hidden" name="send_announce_id" value="<?php echo htmlspecialchars($a['Announce_ID'], ENT_QUOTES, 'UTF-8'); ?>">
                                                     <button type="submit" class="btn btn-outline-success btn-sm">送信</button>
+                                                </form>
+                                                <form method="POST" style="margin:0;" onsubmit="return confirm('確定要刪除此公告嗎？');">
+                                                    <input type="hidden" name="action" value="delete">
+                                                    <input type="hidden" name="announce_id" value="<?php echo htmlspecialchars($a['Announce_ID'], ENT_QUOTES, 'UTF-8'); ?>">
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm">刪除</button>
                                                 </form>
                                             </div>
                                         </td>

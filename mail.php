@@ -1,5 +1,6 @@
 <?php
 use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
 require_once __DIR__ . '/PHPMailer/Exception.php';
@@ -55,7 +56,7 @@ function sendMail(string $to, string $subject, string $body): void
         // Content
         $mail->isHTML(true); 
         $mail->Subject = $subject;
-        $mail->Body    = $body;
+        $mail->Body    = nl2br($body);
         $mail->AltBody = strip_tags($body); // 自動把 HTML 標籤拿掉當成純文字備份
 
         $mail->send();

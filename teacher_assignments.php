@@ -54,7 +54,10 @@ if ($editId !== '') {
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $action = $_POST['action'];
+
+    if ($action === 'save') {
     $announceId = trim($_POST['assign_id'] ?? '');
     $actionAssignId = $announceId;
     $courseId = trim($_POST['course_id'] ?? '');
@@ -140,16 +143,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
         }
     }
+    } elseif ($action === 'delete') {
+        $deleteId = trim($_POST['assign_id'] ?? '');
+        if ($deleteId !== '') {
+            $delStmt = $conn->prepare("
+                DELETE a FROM assignment a
+                JOIN course c ON a.Course_ID = c.Course_ID
+                WHERE a.Assign_ID = :aid AND c.Teacher_ID = :tid
+            ");
+            $delStmt->bindParam(':aid', $deleteId);
+            $delStmt->bindParam(':tid', $teacherId);
+            $delStmt->execute();
+
+            if ($delStmt->rowCount() > 0) {
+                $success = '作業已成功刪除。';
+            } else {
+                $error = '刪除失敗：作業不存在或不屬於你的課程。';
+            }
+        }
+    }
 }
 
-$listStmt = $conn->prepare("
+$filterCourseId = $_GET['filter_course_id'] ?? '';
+$sql = "
     SELECT a.Assign_ID, a.Course_ID, c.Course_Name, a.Title, a.Description, a.Publish_Time, a.Due_Date
     FROM assignment a
     JOIN course c ON a.Course_ID = c.Course_ID
     WHERE c.Teacher_ID = :tid
-    ORDER BY a.Due_Date ASC
-");
+";
+if ($filterCourseId !== '') {
+    $sql .= " AND a.Course_ID = :cid";
+}
+$sql .= " ORDER BY a.Due_Date ASC";
+
+$listStmt = $conn->prepare($sql);
 $listStmt->bindParam(':tid', $teacherId);
+if ($filterCourseId !== '') {
+    $listStmt->bindParam(':cid', $filterCourseId);
+}
 $listStmt->execute();
 $assignments = $listStmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
@@ -262,7 +293,20 @@ $assignments = $listStmt->fetchAll(PDO::FETCH_ASSOC);
 
         <div class="col-lg-7">
             <div class="card">
-                <div class="card-header">作業列表</div>
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <span>作業列表</span>
+                    <form method="GET" class="d-flex gap-2 align-items-center" style="margin:0;">
+                        <select name="filter_course_id" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                            <option value="">全部課程</option>
+                            <?php foreach ($courses as $c): ?>
+                                <option value="<?php echo htmlspecialchars($c['Course_ID'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    <?php echo ($filterCourseId === $c['Course_ID']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($c['Course_Name'], ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </form>
+                </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-striped table-hover mb-0">
@@ -290,6 +334,11 @@ $assignments = $listStmt->fetchAll(PDO::FETCH_ASSOC);
                                         <td class="d-flex gap-1">
                                             <a class="btn btn-outline-primary btn-sm" href="teacher_assignments.php?id=<?php echo urlencode($a['Assign_ID']); ?>">編輯</a>
                                             <a class="btn btn-outline-success btn-sm" href="teacher_assignment_submissions.php?id=<?php echo urlencode($a['Assign_ID']); ?>">管理繳交</a>
+                                            <form method="POST" style="margin:0;" onsubmit="return confirm('確定要刪除此作業嗎？');">
+                                                <input type="hidden" name="action" value="delete">
+                                                <input type="hidden" name="assign_id" value="<?php echo htmlspecialchars($a['Assign_ID'], ENT_QUOTES, 'UTF-8'); ?>">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm">刪除</button>
+                                            </form>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
