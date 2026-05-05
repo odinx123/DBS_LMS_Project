@@ -242,8 +242,25 @@ $announcements = $annStmt->fetchAll(PDO::FETCH_ASSOC);
     <title>公告管理 - LMS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 <body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="teacher_dashboard.php">NSYSU LMS <span class="badge bg-warning text-dark ms-2" style="font-size: 0.6em;">管理端</span></a>
+        
+        <div class="d-flex align-items-center">
+            <span class="navbar-text me-3 text-white d-none d-sm-inline">
+                <i class="bi bi-person-badge me-1"></i>
+                <?php echo htmlspecialchars($_SESSION['name'] ?? '', ENT_QUOTES, 'UTF-8'); ?> 
+                (<?php echo htmlspecialchars($_SESSION['teacher_role'] ?? 'teacher', ENT_QUOTES, 'UTF-8'); ?>)
+            </span>
+            <a class="btn btn-outline-light btn-sm" href="logout.php">
+                <i class="bi bi-box-arrow-right me-1"></i>登出
+            </a>
+        </div>
+    </div>
+</nav>
 <div class="container" style="padding-top: 28px;">
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
