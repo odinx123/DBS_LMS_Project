@@ -291,7 +291,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_submit'])) {
                                         $isOverdue = $dueTs !== false ? (time() > $dueTs) : false;
                                         $label = $a['Title'] . '（截止：' . ($a['Due_Date'] ?? '-') . '）';
                                         if ($isOverdue) {
-                                            $label .= ' [已超期]';
+                                            $label .= ' [已過期]';
                                         }
                                     ?>
                                     <option value="<?php echo htmlspecialchars($a['Assign_ID'], ENT_QUOTES, 'UTF-8'); ?>"
@@ -340,7 +340,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_submit'])) {
                                     <tr>
                                         <td><?php echo htmlspecialchars($a['Title'], ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?php echo htmlspecialchars($a['Due_Date'] ?? '', ENT_QUOTES, 'UTF-8'); ?></td>
-                                        <td><?php echo $isOverdue ? '<span class="text-danger">已超期</span>' : '<span class="text-success">可上傳</span>'; ?></td>
+                                        <td><?php echo $isOverdue ? '<span class="text-danger">已過期</span>' : '<span class="text-success">可上傳</span>'; ?></td>
                                         <td><?php echo htmlspecialchars($a['Submit_Time'] ?? '尚未繳交', ENT_QUOTES, 'UTF-8'); ?></td>
                                     </tr>
                                 <?php endforeach; ?>

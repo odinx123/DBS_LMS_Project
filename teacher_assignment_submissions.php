@@ -42,7 +42,7 @@ $stmt->execute();
 $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle Export
-if (false && isset($_GET['action']) && in_array($_GET['action'], ['export_csv', 'export_excel'])) {
+if (isset($_GET['action']) && in_array($_GET['action'], ['export_csv', 'export_excel'])) {
     $filename = $assignment['Course_Name'] . "_" . $assignment['Title'] . "_成績單";
     $filename = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', $filename);
     

@@ -118,7 +118,7 @@ if ($selectedCourseId !== '' && isset($_GET['fetch_data']) && $_GET['fetch_data'
                 echo '<tr>';
                 echo '<td><a href="student_assignment_detail.php?assign_id=' . urlencode($a['Assign_ID']) . '&course_id=' . urlencode($selectedCourseId) . '">' . htmlspecialchars($a['Title'], ENT_QUOTES, 'UTF-8') . '</a></td>';
                 echo '<td>' . htmlspecialchars($a['Due_Date'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>';
-                echo '<td>' . ($isOverdue ? '<span class="text-danger">已超期</span>' : '<span class="text-success">可上傳</span>') . '</td>';
+                echo '<td>' . ($isOverdue ? '<span class="text-danger">已過期</span>' : '<span class="text-success">可上傳</span>') . '</td>';
                 echo '<td>' . htmlspecialchars($a['Submit_Time'] ?? '尚未繳交', ENT_QUOTES, 'UTF-8') . '</td>';
                 echo '</tr>';
             }
@@ -345,7 +345,7 @@ if ($selectedCourseId !== '') {
                                                     </a>
                                                 </td>
                                                 <td><?php echo htmlspecialchars($a['Due_Date'] ?? '', ENT_QUOTES, 'UTF-8'); ?></td>
-                                                <td><?php echo $isOverdue ? '<span class="text-danger">已超期</span>' : '<span class="text-success">可上傳</span>'; ?></td>
+                                                <td><?php echo $isOverdue ? '<span class="text-danger">已過期</span>' : '<span class="text-success">可上傳</span>'; ?></td>
                                                 <td><?php echo htmlspecialchars($a['Submit_Time'] ?? '尚未繳交', ENT_QUOTES, 'UTF-8'); ?></td>
                                             </tr>
                                         <?php endforeach; ?>

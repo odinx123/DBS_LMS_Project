@@ -38,15 +38,25 @@ function sendMail(string $to, string $subject, string $body): void
 
     try {
         // Server settings
+        // $mail->isSMTP();
+        // $mail->Host       = 'mail.nsysu.edu.tw'; // 中山大學伺服器
+        // $mail->SMTPAuth   = true;
+        // $mail->Username   = $smtpUser;
+        // $mail->Password   = $smtpPass;
+        // // $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        // // $mail->SMTPSecure = '';
+        // $mail->SMTPAutoTLS = false;                   // 強制關閉自動 TLS 避免報錯
+        // $mail->Port       = 25;
+        // $mail->CharSet    = 'UTF-8';
+
+        // Server settings
         $mail->isSMTP();
-        $mail->Host       = 'student.nsysu.edu.tw'; // 中山大學伺服器
-        $mail->SMTPAuth   = true;
+        $mail->Host       = 'mail.nsysu.edu.tw';         // 確認一下新系統主機名有沒有改，若沒改維持這個
+        $mail->SMTPAuth   = true;                           // 對應公告：需要勾選外寄伺服器需要驗證
         $mail->Username   = $smtpUser;
         $mail->Password   = $smtpPass;
-        // $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->SMTPSecure = '';
-        $mail->SMTPAutoTLS = false;                   // 強制關閉自動 TLS 避免報錯
-        $mail->Port       = 25;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; // 對應公告：寄信請選擇 StartTLS
+        $mail->Port       = 587;                            // 對應公告：使用 587 (強烈建議用 587，比 25 不容易被家用網路擋)
         $mail->CharSet    = 'UTF-8';
 
         // Recipients
